@@ -1,0 +1,6 @@
+{
+  "name": "Cap Zéro",
+  "description": "Suivi bienveillant de la consommation de cigarettes et plan de réduction progressive jusqu'à l'arrêt complet.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

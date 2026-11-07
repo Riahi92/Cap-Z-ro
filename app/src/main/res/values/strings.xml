@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Cap Zéro</string>
+    <string name="health_disclaimer">Cette application accompagne votre suivi personnel et ne remplace pas un professionnel de santé.</string>
+    <string name="nav_today">Accueil</string>
+    <string name="nav_journal">Journal</string>
+    <string name="nav_plan">Plan</string>
+    <string name="nav_progress">Progrès</string>
+    <string name="nav_craving">Envie</string>
+    <string name="nav_settings">Paramètres</string>
+    <string name="btn_i_smoked">J\'ai fumé</string>
+    <string name="btn_craving_passed">L\'envie est passée</string>
+    <string name="action_undo">Annuler</string>
+    <string name="plan_disclaimer_short">Objectif d\'organisation modifiable à votre rythme (non médical).</string>
+    <string name="plan_disclaimer">Ce calendrier est un objectif d\'organisation modifiable à votre rythme, et non une prescription médicale. Un plafond n\'est jamais un quota à consommer. En cas de dépassement, l\'historique est conservé et le plan n\'est jamais modifié automatiquement.</string>
+    <string name="widget_description">Suivez le plafond du jour et enregistrez une cigarette en un clic sans ouvrir Cap Zéro.</string>
+    <string name="widget_btn_smoke">+ J\'ai fumé</string>
+    <string name="widget_default_cap">Plafond du jour : —</string>
+    <string name="widget_cigarettes_today_label">cigarettes\naujourd\'hui</string>
+    <string name="widget_tap_cap_hint">Chaque pas compte</string>
+</resources>
