@@ -380,6 +380,12 @@ fun TodayScreen(
                 modifier = Modifier.testTag("today_craving_help_button")
             )
 
+            // 4b. Carte « Espacement entre cigarettes aujourd'hui » (strictement intra-journée)
+            TodayIntervalStatsCard(
+                intervalStats = uiState.todayIntervalStats,
+                todayCount = todayCount
+            )
+
             // 5. Carte « Inventaire de cigarettes & Paquets achetés » (déduction automatique à chaque cigarette)
             InventorySummaryCard(
                 inventorySummary = uiState.inventorySummary,
@@ -628,5 +634,129 @@ private fun SavingsSmallCard(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.testTag("today_savings_value_text")
         )
+    }
+}
+
+@Composable
+private fun TodayIntervalStatsCard(
+    intervalStats: com.example.util.DayIntervalStats?,
+    todayCount: Int,
+    modifier: Modifier = Modifier
+) {
+    CapZeroWhiteCard(
+        contentPadding = PaddingValues(16.dp),
+        modifier = modifier.testTag("today_interval_stats_card")
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.AccessTime,
+                contentDescription = null,
+                tint = Color(0xFF1E8768),
+                modifier = Modifier.size(20.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Espacement entre cigarettes",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF152C27)
+                )
+                Text(
+                    text = "Calculé uniquement au cours de la journée (nuit exclue)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (intervalStats != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IntervalStatPill(
+                    label = "Minimum",
+                    value = DateAndCurrencyUtils.formatIntervalDuration(intervalStats.minMillis),
+                    containerColor = Color(0xFFE8F5E9),
+                    contentColor = Color(0xFF1B5E20),
+                    modifier = Modifier.weight(1f),
+                    testTag = "today_interval_min_value"
+                )
+                IntervalStatPill(
+                    label = "Moyen",
+                    value = DateAndCurrencyUtils.formatIntervalDuration(intervalStats.avgMillis),
+                    containerColor = Color(0xFFE0F2F1),
+                    contentColor = Color(0xFF004D40),
+                    modifier = Modifier.weight(1f),
+                    testTag = "today_interval_avg_value"
+                )
+                IntervalStatPill(
+                    label = "Maximum",
+                    value = DateAndCurrencyUtils.formatIntervalDuration(intervalStats.maxMillis),
+                    containerColor = Color(0xFFE8F5E9),
+                    contentColor = Color(0xFF1B5E20),
+                    modifier = Modifier.weight(1f),
+                    testTag = "today_interval_max_value"
+                )
+            }
+        } else {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (todayCount == 0) {
+                        "Aucune cigarette fumée aujourd'hui (journée sans tabac)."
+                    } else {
+                        "1 cigarette enregistrée · Intervalles calculés à partir de 2 cigarettes."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IntervalStatPill(
+    label: String,
+    value: String,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    testTag: String = ""
+) {
+    Surface(
+        color = containerColor,
+        shape = RoundedCornerShape(14.dp),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor.copy(alpha = 0.85f),
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = contentColor,
+                fontWeight = FontWeight.Bold,
+                modifier = if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier
+            )
+        }
     }
 }

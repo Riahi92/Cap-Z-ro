@@ -13,6 +13,7 @@ import com.example.data.preferences.DarkThemeMode
 import com.example.data.preferences.UserPreferencesState
 import com.example.data.repository.CapZeroRepository
 import com.example.util.DateAndCurrencyUtils
+import com.example.util.DayIntervalStats
 import com.example.util.PlanStepPreview
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -95,7 +96,8 @@ data class DayJournalGroup(
     val entries: List<CigaretteLogEntity>,
     val isConfirmedComplete: Boolean,
     val isCurrentDay: Boolean,
-    val plannedCap: Int?
+    val plannedCap: Int?,
+    val intervalStats: DayIntervalStats? = null
 ) {
     val statusCategory: DayStatusCategory
         get() = when {
@@ -141,7 +143,8 @@ data class ProgressMetrics(
     val topContexts: List<ContextStatItem>,
     val chartPoints: List<ChartDayPoint>,
     val hasChartData: Boolean,
-    val cravingsOvercomeCount: Int
+    val cravingsOvercomeCount: Int,
+    val overallIntervalStats: DayIntervalStats? = null
 )
 
 @Immutable
@@ -175,6 +178,7 @@ data class CapZeroUiState(
     val confirmedObservationDaysCount: Int = 0,
     val computedObservationReference: Int? = null, // null si 0 journée complète confirmée
     val journalGroups: List<DayJournalGroup> = emptyList(),
+    val todayIntervalStats: DayIntervalStats? = null,
     val progressMetrics: ProgressMetrics = ProgressMetrics(
         confirmedDaysCount = 0,
         confirmedZeroDaysCount = 0,
@@ -189,7 +193,8 @@ data class CapZeroUiState(
         topContexts = emptyList(),
         chartPoints = emptyList(),
         hasChartData = false,
-        cravingsOvercomeCount = 0
+        cravingsOvercomeCount = 0,
+        overallIntervalStats = null
     ),
     val cravingTimer: CravingTimerState = CravingTimerState(),
     val pendingUndo: UndoAction? = null,
@@ -226,6 +231,7 @@ private data class ComputedDomainSnapshot(
     val confirmedObservationDaysCount: Int,
     val computedObservationReference: Int?,
     val journalGroups: List<DayJournalGroup>,
+    val todayIntervalStats: DayIntervalStats?,
     val progressMetrics: ProgressMetrics
 )
 
@@ -299,6 +305,7 @@ class CapZeroViewModel(
             confirmedObservationDaysCount = snapshot.confirmedObservationDaysCount,
             computedObservationReference = snapshot.computedObservationReference,
             journalGroups = snapshot.journalGroups,
+            todayIntervalStats = snapshot.todayIntervalStats,
             progressMetrics = snapshot.progressMetrics,
             cravingTimer = internal.cravingTimer,
             pendingUndo = internal.pendingUndo,
@@ -483,6 +490,12 @@ class CapZeroViewModel(
             null
         }
 
+        // Calcul des intervalles STRICTEMENT intra-journée (zéro calcul entre deux jours distincts)
+        val dayIntervalsMap = cigsByDay.mapValues { (_, dayCigs) ->
+            DateAndCurrencyUtils.computeDayIntervalStats(dayCigs.map { it.timestampMillis })
+        }
+        val todayIntervalStats = dayIntervalsMap[todayDay]
+
         // Groupes du Journal : inclut aujourd'hui, hier (pour permettre de confirmer facilement une journée passée),
         // ainsi que tous les jours ayant des cigarettes ou un statut confirmé.
         val allJournalDays = (cigsByDay.keys + confirmedDaySet + setOf(todayDay, todayDay - 1L))
@@ -495,7 +508,8 @@ class CapZeroViewModel(
                 entries = dayEntries,
                 isConfirmedComplete = confirmedDaySet.contains(day),
                 isCurrentDay = day == todayDay,
-                plannedCap = capForDay
+                plannedCap = capForDay,
+                intervalStats = dayIntervalsMap[day]
             )
         }
 
@@ -584,6 +598,33 @@ class CapZeroViewModel(
 
         val cravingsOvercome = cravings.count { it.outcome == "PASSED" }
 
+        // Collecte de tous les deltas intra-journée pour la synthèse Progrès (strictement intra-journée)
+        val allIntraDayDeltas = mutableListOf<Long>()
+        cigsByDay.values.forEach { dayCigs ->
+            if (dayCigs.size >= 2) {
+                val sorted = dayCigs.map { it.timestampMillis }.sorted()
+                for (i in 0 until sorted.size - 1) {
+                    val diff = sorted[i + 1] - sorted[i]
+                    if (diff >= 0L) {
+                        allIntraDayDeltas.add(diff)
+                    }
+                }
+            }
+        }
+        val overallIntervalStats = if (allIntraDayDeltas.isNotEmpty()) {
+            val min = allIntraDayDeltas.minOrNull() ?: 0L
+            val max = allIntraDayDeltas.maxOrNull() ?: 0L
+            val avg = Math.round(allIntraDayDeltas.average()).toLong()
+            DayIntervalStats(
+                minMillis = min,
+                maxMillis = max,
+                avgMillis = avg,
+                countIntervals = allIntraDayDeltas.size
+            )
+        } else {
+            null
+        }
+
         return ComputedDomainSnapshot(
             todayEpochDay = todayDay,
             preferences = prefs,
@@ -601,6 +642,7 @@ class CapZeroViewModel(
             confirmedObservationDaysCount = confirmedDaysCount,
             computedObservationReference = computedObservationRef,
             journalGroups = journalGroups,
+            todayIntervalStats = todayIntervalStats,
             progressMetrics = ProgressMetrics(
                 confirmedDaysCount = confirmedDaysCount,
                 confirmedZeroDaysCount = confirmedZeroDaysCount,
@@ -615,7 +657,8 @@ class CapZeroViewModel(
                 topContexts = topContexts,
                 chartPoints = chartPoints,
                 hasChartData = hasChartData,
-                cravingsOvercomeCount = cravingsOvercome
+                cravingsOvercomeCount = cravingsOvercome,
+                overallIntervalStats = overallIntervalStats
             )
         )
     }

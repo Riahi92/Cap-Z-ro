@@ -452,6 +452,112 @@ class ExampleRobolectricTest {
         }
         assertEquals(com.example.util.PresetContexts.ALL, stateAfterReset.preferences.customContexts)
     }
+
+    @Test
+    fun `intra day interval calculation strictly ignores intervals between separate days`() = runBlocking {
+        val viewModel = CapZeroViewModel(repository = repository, enableLiveTicker = false)
+        val tz = repository.currentTimeZone()
+
+        val day1 = 20_000L
+        val day2 = 20_001L
+
+        // Day 1: cigarette à 23h00 (une seule cigarette le jour 1)
+        val tsDay1Night = DateAndCurrencyUtils.buildLocalTimestamp(day1, 23, 0, 0, tz)
+        viewModel.addRetroactiveCigarette(tsDay1Night, 3, null, null)
+
+        // Day 2: cigarette à 07h00 (une seule cigarette le jour 2)
+        val tsDay2Morning = DateAndCurrencyUtils.buildLocalTimestamp(day2, 7, 0, 0, tz)
+        viewModel.addRetroactiveCigarette(tsDay2Morning, 4, null, null)
+
+        val stateAfterTwoDays = withTimeout(5000L) {
+            viewModel.uiState.first { it.cigarettes.size == 2 }
+        }
+
+        // Vérification stricte : aucun intervalle calculé entre 23h et 7h car jours séparés !
+        val groupDay1 = stateAfterTwoDays.journalGroups.first { it.localEpochDay == day1 }
+        val groupDay2 = stateAfterTwoDays.journalGroups.first { it.localEpochDay == day2 }
+        assertNull(groupDay1.intervalStats)
+        assertNull(groupDay2.intervalStats)
+        assertNull(stateAfterTwoDays.progressMetrics.overallIntervalStats)
+
+        // Maintenant, ajoutons une 2e et 3e cigarette le jour 2 :
+        // Day 2 : 07h00, 09h30 (+2h30 = 150 min), 13h00 (+3h30 = 210 min)
+        val tsDay2Second = DateAndCurrencyUtils.buildLocalTimestamp(day2, 9, 30, 0, tz)
+        val tsDay2Third = DateAndCurrencyUtils.buildLocalTimestamp(day2, 13, 0, 0, tz)
+        viewModel.addRetroactiveCigarette(tsDay2Second, 2, null, null)
+        viewModel.addRetroactiveCigarette(tsDay2Third, 1, null, null)
+
+        val stateWithDay2Intervals = withTimeout(5000L) {
+            viewModel.uiState.first { it.cigarettes.size == 4 }
+        }
+
+        val updatedGroupDay2 = stateWithDay2Intervals.journalGroups.first { it.localEpochDay == day2 }
+        val statsDay2 = checkNotNull(updatedGroupDay2.intervalStats)
+        assertEquals(2, statsDay2.countIntervals)
+        assertEquals(150 * 60_000L, statsDay2.minMillis) // 2h30
+        assertEquals(210 * 60_000L, statsDay2.maxMillis) // 3h30
+        assertEquals(180 * 60_000L, statsDay2.avgMillis) // Moyenne = (150 + 210) / 2 = 180 min (3h00)
+
+        // Formatage en heures et minutes
+        assertEquals("2 h 30", DateAndCurrencyUtils.formatIntervalDuration(statsDay2.minMillis))
+        assertEquals("3 h", DateAndCurrencyUtils.formatIntervalDuration(statsDay2.avgMillis))
+        assertEquals("3 h 30", DateAndCurrencyUtils.formatIntervalDuration(statsDay2.maxMillis))
+
+        // Synthèse globale Progrès
+        val overallStats = checkNotNull(stateWithDay2Intervals.progressMetrics.overallIntervalStats)
+        assertEquals(150 * 60_000L, overallStats.minMillis)
+        assertEquals(210 * 60_000L, overallStats.maxMillis)
+        assertEquals(180 * 60_000L, overallStats.avgMillis)
+    }
+
+    @Test
+    fun testCalendarMonthInfoAndCumulativeTotalCigarettes() = runBlocking {
+        val viewModel = CapZeroViewModel(repository = repository, enableLiveTicker = false)
+        val tz = repository.currentTimeZone()
+
+        // 1. Test des métadonnées du calendrier pour Novembre 2026 (Novembre = mois 10 en index 0)
+        // Le 1er Novembre 2026 est un Dimanche -> Dans une semaine débutant le Lundi (index 0), Dimanche est à l'index 6
+        val nov2026Info = DateAndCurrencyUtils.getCalendarMonthInfo(2026, 10, tz)
+        assertEquals(30, nov2026Info.daysInMonth)
+        assertEquals(6, nov2026Info.firstDayOffsetMondayZero)
+        assertEquals("Novembre 2026", nov2026Info.monthNameFormatted)
+
+        // Décembre 2026 (mois 11 en index 0) : 1er Décembre 2026 est un Mardi -> index 1
+        val dec2026Info = DateAndCurrencyUtils.getCalendarMonthInfo(2026, 11, tz)
+        assertEquals(31, dec2026Info.daysInMonth)
+        assertEquals(1, dec2026Info.firstDayOffsetMondayZero)
+        assertEquals("Décembre 2026", dec2026Info.monthNameFormatted)
+
+        // 2. Test du total cumulé des cigarettes
+        val day1 = DateAndCurrencyUtils.ymdToLocalEpochDay(2026, 10, 3)
+        val day2 = DateAndCurrencyUtils.ymdToLocalEpochDay(2026, 10, 4)
+
+        viewModel.addRetroactiveCigarette(
+            DateAndCurrencyUtils.buildLocalTimestamp(day1, 10, 0, 0, tz),
+            3,
+            null,
+            null
+        )
+        viewModel.addRetroactiveCigarette(
+            DateAndCurrencyUtils.buildLocalTimestamp(day1, 14, 0, 0, tz),
+            4,
+            null,
+            null
+        )
+        viewModel.addRetroactiveCigarette(
+            DateAndCurrencyUtils.buildLocalTimestamp(day2, 9, 0, 0, tz),
+            2,
+            null,
+            null
+        )
+
+        val state = withTimeout(5000L) {
+            viewModel.uiState.first { it.cigarettes.size == 3 }
+        }
+
+        assertEquals(3, state.cigarettes.size)
+        assertEquals(3, state.progressMetrics.totalCigarettesAllDays)
+    }
 }
 
 

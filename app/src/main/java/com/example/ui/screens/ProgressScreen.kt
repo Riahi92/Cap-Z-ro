@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SmokingRooms
+import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -187,7 +189,51 @@ fun ProgressScreen(
                 testTagPrefix = "progress_inventory"
             )
 
-            // 3. Trois indicateurs présentés séparément :
+            // Total cumulé de cigarettes fumées
+            CapZeroWhiteCard(
+                modifier = Modifier.testTag("progress_total_cigarettes_card")
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.SmokingRooms,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Total de cigarettes fumées",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Volume cumulé enregistré dans l'application",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Text(
+                        text = "${metrics.totalCigarettesAllDays}",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("progress_total_cigarettes_count")
+                    )
+                }
+            }
+
+            // 3. Indicateurs présentés séparément :
             // - Envies traversées
             // - Jours confirmés sans cigarette
             // - Consommation moyenne (sur journées complètes confirmées, ou « — »)
@@ -321,6 +367,104 @@ fun ProgressScreen(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.testTag("progress_avg_per_logged_day")
                     )
+                }
+            }
+
+            // 3b. Carte « Espacement des cigarettes » (strictement intra-journée)
+            CapZeroWhiteCard(
+                modifier = Modifier.testTag("progress_interval_stats_card")
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.AccessTime,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(26.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Espacement des cigarettes",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Intervalles au cours de la journée (nuit exclue)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        AccessibleHelpIconButton(
+                            helpTitle = "Espacement entre cigarettes",
+                            helpDetails = "Cette mesure calcule le temps écoulé entre chaque cigarette fumée au cours d'une même journée.\n\n" +
+                                "• Min : l'intervalle le plus court observé.\n" +
+                                "• Moy : le temps moyen entre deux cigarettes au cours d'une journée.\n" +
+                                "• Max : votre record d'espacement au sein d'une même journée.\n\n" +
+                                "Important : pour ne pas fausser vos statistiques réelles, la période de nuit/sommeil (ex. entre 23h00 la veille et 07h00 le lendemain) n'est jamais comptabilisée dans ces intervalles.",
+                            testTag = "progress_interval_stats_help_button"
+                        )
+                    }
+
+                    val overallStats = metrics.overallIntervalStats
+                    if (overallStats != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ProgressIntervalPill(
+                                label = "Minimum",
+                                value = DateAndCurrencyUtils.formatIntervalDuration(overallStats.minMillis),
+                                containerColor = Color(0xFFE8F5E9),
+                                contentColor = Color(0xFF1B5E20),
+                                modifier = Modifier.weight(1f),
+                                testTag = "progress_interval_min_value"
+                            )
+                            ProgressIntervalPill(
+                                label = "Moyen",
+                                value = DateAndCurrencyUtils.formatIntervalDuration(overallStats.avgMillis),
+                                containerColor = Color(0xFFE0F2F1),
+                                contentColor = Color(0xFF004D40),
+                                modifier = Modifier.weight(1f),
+                                testTag = "progress_interval_avg_value"
+                            )
+                            ProgressIntervalPill(
+                                label = "Maximum",
+                                value = DateAndCurrencyUtils.formatIntervalDuration(overallStats.maxMillis),
+                                containerColor = Color(0xFFE8F5E9),
+                                contentColor = Color(0xFF1B5E20),
+                                modifier = Modifier.weight(1f),
+                                testTag = "progress_interval_max_value"
+                            )
+                        }
+                    } else {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Disponible dès que vous enregistrez au moins 2 cigarettes au cours d'une même journée.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -654,6 +798,42 @@ private fun ConsumptionVsCapChart(
                 path = capPath,
                 color = capLineColor,
                 style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressIntervalPill(
+    label: String,
+    value: String,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    testTag: String = ""
+) {
+    Surface(
+        color = containerColor,
+        shape = RoundedCornerShape(14.dp),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor.copy(alpha = 0.85f),
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = contentColor,
+                fontWeight = FontWeight.Bold,
+                modifier = if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier
             )
         }
     }

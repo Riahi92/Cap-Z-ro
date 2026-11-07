@@ -39,6 +39,27 @@ data class PlanStepPreview(
 )
 
 /**
+ * Statistiques d'espacement (intervalles) entre cigarettes d'une même journée ou agrégées.
+ */
+data class DayIntervalStats(
+    val minMillis: Long,
+    val maxMillis: Long,
+    val avgMillis: Long,
+    val countIntervals: Int
+)
+
+/**
+ * Informations mensuelles pour le calendrier du Journal.
+ */
+data class CalendarMonthInfo(
+    val year: Int,
+    val monthZeroBased: Int,
+    val monthNameFormatted: String,
+    val firstDayOffsetMondayZero: Int,
+    val daysInMonth: Int
+)
+
+/**
  * Utilitaires de gestion des dates locales (selon le fuseau horaire),
  * du formatage monétaire en TND (3 décimales) et du calcul linéaire du plan.
  * Optimisé avec mise en cache mémoire et ThreadLocal pour éliminer les allocations répétées sur mobile.
@@ -240,6 +261,36 @@ object DateAndCurrencyUtils {
     }
 
     /**
+     * Calcule les métadonnées nécessaires pour afficher la grille mensuelle du calendrier (Lundi = col 0).
+     */
+    fun getCalendarMonthInfo(
+        year: Int,
+        monthZeroBased: Int,
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): CalendarMonthInfo {
+        val cal = Calendar.getInstance(timeZone).apply {
+            clear()
+            set(year, monthZeroBased, 1, 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK) // Calendar.SUNDAY = 1, Calendar.MONDAY = 2, ...
+        val firstDayOffsetMondayZero = (dayOfWeek + 5) % 7 // Monday -> 0, Sunday -> 6
+
+        val monthName = SimpleDateFormat("MMMM yyyy", Locale.FRANCE).apply {
+            this.timeZone = timeZone
+        }.format(cal.time).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.FRANCE) else it.toString() }
+
+        return CalendarMonthInfo(
+            year = year,
+            monthZeroBased = monthZeroBased,
+            monthNameFormatted = monthName,
+            firstDayOffsetMondayZero = firstDayOffsetMondayZero,
+            daysInMonth = daysInMonth
+        )
+    }
+
+    /**
      * Formate le temps écoulé de façon concise et dominante comme sur la maquette
      * (ex. « Il y a 1 h 20 », « Il y a 25 min », « Il y a 2 j 4 h » ou « — » si aucune cigarette).
      */
@@ -258,6 +309,48 @@ object DateAndCurrencyUtils {
             hours > 0 -> String.format(Locale.FRANCE, "Il y a %d h %02d", hours, minutes)
             minutes > 0 -> "Il y a $minutes min"
             else -> "À l'instant"
+        }
+    }
+
+    /**
+     * Calcule les intervalles (min, max, moyen) strictement entre cigarettes d'une même journée.
+     * Si la liste comporte moins de 2 cigarettes, aucun intervalle intra-journée n'existe et retourne null.
+     */
+    fun computeDayIntervalStats(timestamps: List<Long>): DayIntervalStats? {
+        if (timestamps.size < 2) return null
+        val sorted = timestamps.sorted()
+        val deltas = mutableListOf<Long>()
+        for (i in 0 until sorted.size - 1) {
+            val diff = sorted[i + 1] - sorted[i]
+            if (diff >= 0L) {
+                deltas.add(diff)
+            }
+        }
+        if (deltas.isEmpty()) return null
+        val min = deltas.minOrNull() ?: return null
+        val max = deltas.maxOrNull() ?: return null
+        val avg = Math.round(deltas.average()).toLong()
+        return DayIntervalStats(
+            minMillis = min,
+            maxMillis = max,
+            avgMillis = avg,
+            countIntervals = deltas.size
+        )
+    }
+
+    /**
+     * Formate une durée d'intervalle en heures et minutes (ex: "45 min", "1 h 30", "< 1 min" ou "—").
+     */
+    fun formatIntervalDuration(durationMillis: Long?): String {
+        if (durationMillis == null || durationMillis < 0L) return "—"
+        val totalMinutes = durationMillis / 60_000L
+        if (totalMinutes < 1L) return "< 1 min"
+        val hours = totalMinutes / 60L
+        val minutes = totalMinutes % 60L
+        return when {
+            hours == 0L -> "$minutes min"
+            minutes == 0L -> "$hours h"
+            else -> String.format(Locale.FRANCE, "%d h %02d", hours, minutes)
         }
     }
 

@@ -1,103 +1,118 @@
-# Personnalisation de la liste des contextes dans Cap Zéro
+# Calendrier Interactif du Journal & Total Cumulé des Cigarettes
 
-Ce plan détaille l'ajout d'une gestion complète et personnalisable de la liste des contextes (« Contexte (facultatif) »), permettant d'ajouter, modifier ou supprimer librement tous les contextes à la fois lors de la saisie d'une cigarette et depuis l'écran **Paramètres**.
+Intégration d'une vue Calendrier interactive pour le Journal avec navigation mensuelle et affichage instantané de l'historique du jour sélectionné (avec bascule vers la vue Liste), et mise en valeur du total cumulé de cigarettes fumées sur le Journal et l'onglet Progrès.
 
-## User Review & Critical Decisions
+## Décisions Clés & Réponses Confirmées
 
 > [!IMPORTANT]
-> Les choix suivants ont été confirmés avec vous et guident cette implémentation :
-
-- **Personnalisation complète de la liste** : Vous pouvez **ajouter, modifier (renommer) ou supprimer librement tous les contextes** (y compris les 5 contextes proposés par défaut), avec un bouton permettant de restaurer la liste par défaut si besoin.
-- **Double accès (Saisie & Paramètres)** :
-  1. **Directement dans la fenêtre de saisie de cigarette** (`CigaretteEntryDialog` sur **Accueil** et **Journal**) : ajout rapide d'un nouveau contexte (qui est automatiquement sélectionné et enregistré dans votre liste) et mode d'édition rapide pour renommer ou supprimer des contextes existants.
-  2. **Dans l'onglet Paramètres** : une carte dédiée **« Liste des contextes (Journal) »** permettant d'ajouter, renommer, supprimer ou réinitialiser vos contextes à tout moment.
+> Les choix d'ergonomie et d'affichage suivants ont été validés avec l'utilisateur :
+> - **Format du Journal** : Vue Calendrier par défaut avec bouton/onglet pour basculer facilement en vue Liste.
+> - **Affichage de la date sélectionnée** : Directement sous le calendrier sur la même page (accès immédiat aux détails, cigarettes, intervalles et boutons de confirmation).
+> - **Total cumulé des cigarettes fumées** : Affiché en haut de l'écran Journal ainsi que dans la synthèse de l'onglet Progrès.
 
 ---
 
-## 1. Overview & Core Concept
+## 1. Vue d'ensemble & Bénéfices Utilisateur
 
-- **Ce que fait la fonctionnalité** : Remplace la liste figée des 5 contextes prédéfinis par une liste personnelle dynamique persistée localement et incluse dans les sauvegardes JSON.
-- **Valeur ajoutée** : Chaque fumeur a ses propres déclencheurs et habitudes (ex. *« En voiture »*, *« Après le sport »*, *« Appel téléphonique »*, *« Soirée jeux »*). Pouvoir créer et ajuster sa propre liste rend le suivi et les statistiques des contextes fréquents dans l'onglet **Progrès** beaucoup plus pertinents.
-
----
-
-## 2. User Experience & Visual Design
-
-### Parcours 1 : Ajout et gestion directe lors de la saisie d'une cigarette
-1. Dans la fenêtre d'enregistrement ou de modification d'une cigarette (**Accueil** après *« J'ai fumé »* ou **Journal** via *« Ajouter une cigarette »* / *« Modifier »*), la section **« Contexte (facultatif) »** affiche vos puces (`FilterChip`) personnalisées.
-2. Une puce d'action **« + Ajouter »** située à la fin de la liste permet de saisir immédiatement un nouveau contexte :
-   - Dès la validation, le nouveau contexte est ajouté à votre liste personnelle et sélectionné automatiquement pour la cigarette en cours.
-3. Un bouton **« Gérer »** en haut à droite de la section « Contexte (facultatif) » permet d'afficher les contrôles d'édition rapide (renommer ou supprimer un contexte existant) sans quitter la fenêtre de saisie.
-
-### Parcours 2 : Gestion complète dans l'écran Paramètres
-1. Dans **Paramètres**, une nouvelle carte blanche **« Liste des contextes (Journal) »** affiche l'ensemble de vos contextes actuels.
-2. Un champ de saisie avec bouton **« Ajouter »** permet d'insérer rapidement un nouveau contexte dans votre liste.
-3. Chaque contexte dispose d'une action **Modifier (renommer)** et **Supprimer**.
-4. Un bouton secondaire **« Réinitialiser par défaut »** permet de retrouver les 5 contextes initiaux si souhaité.
-
-### Identité visuelle & Thème
-- Respect strict de la palette **Cap Zéro** :
-  - Puces sélectionnées en vert menthe doux (`#D9F2E6`) avec texte vert profond (`#123D32`).
-  - Cartes blanches (`#FFFFFF`) avec bordure subtile (`#E2ECE8`) et angles arrondis (`20.dp`).
-  - Cibles tactiles accessibles (`≥ 48.dp`).
+- **Visualisation temporelle globale** : Le calendrier offre une vue claire du mois calendaire, avec des repères visuels par jour (pastille de statut, nombre de cigarettes fumées, code couleur pour les journées sans fumer ou sous le plafond).
+- **Consultation ciblée au toucher** : Cliquer sur n'importe quel jour (aujourd'hui, hier ou une date antérieure) charge instantanément sous le calendrier la liste chronologique des cigarettes avec l'heure exacte, le contexte, l'intensité, le bouton de modification/suppression et les intervalles intra-journée.
+- **Flexibilité** : Possibilité de passer en 1 clic de la vue Calendrier à la vue Liste habituelle (groupes ordonnés par jour) selon la préférence d'usage.
+- **Suivi global du volume fumé** : Mise en évidence du total absolu de cigarettes enregistrées dans l'application, en haut du Journal et dans les cartes de progrès.
 
 ---
 
-## 3. Key Product Decisions & Trade-Offs
+## 2. Expérience Utilisateur & Design Visuel
 
-- **Décision 1 : Synchronisation des cigarettes existantes lors du renommage d'un contexte**
-  - *Approche choisie* : Lorsqu'un contexte est renommé, le nouveau libellé remplace l'ancien dans la liste personnalisée et met également à jour les entrées du journal qui utilisaient l'ancien libellé.
-  - *Pourquoi* : Évite de fragmenter les statistiques de l'onglet **Progrès** (« Contextes fréquents ») entre l'ancien et le nouveau nom d'un même contexte.
-- **Décision 2 : Conservation des contextes historiques lors d'une suppression**
-  - *Approche choisie* : Supprimer un contexte le retire de la liste de sélection pour les prochaines saisies, sans effacer le contexte déjà enregistré sur d'anciennes cigarettes. Si vous éditez une ancienne cigarette ayant un contexte supprimé, celui-ci reste visible et sélectionnable sur cette fiche.
-  - *Pourquoi* : Garantit qu'aucune donnée historique du journal n'est perdue.
+### A. Total cumulé des cigarettes
+- **En haut du Journal** : Une carte/bannière d'en-tête dynamique affichant le total cumulé de cigarettes enregistrées avec une icône Material 3 élégante (`SmokingRooms` ou `Analytics`), le nombre de jours suivis et le stock restant.
+- **Dans l'onglet Progrès** : Une nouvelle carte métrique dédiée au total global fumé, positionnée aux côtés du total d'économies en TND et du nombre de journées confirmées sans fumer.
+
+### B. Contrôle de bascule (Vue Calendrier vs Vue Liste)
+- Un sélecteur à deux segments (`SingleChoiceSegmentedButtonRow` ou deux boutons stylisés) :
+  - `📅 Calendrier` (sélectionné par défaut)
+  - `📋 Liste chronologique`
+- Animation fluide lors du changement de mode.
+
+### C. Vue Calendrier interactive
+- **En-tête de navigation du mois** :
+  - Bouton chevron précédent `<`
+  - Mois et année en français (ex. « Novembre 2026 »)
+  - Bouton chevron suivant `>` (désactivé si mois futur)
+  - Bouton rapide « Aujourd'hui » si l'utilisateur navigue dans un mois passé
+- **En-tête des jours de la semaine** : `Lun · Mar · Mer · Jeu · Ven · Sam · Dim`
+- **Grille des jours du mois (7 colonnes)** :
+  - Chaque cellule affiche le numéro du jour.
+  - Pastille d'état :
+    - Vert émeraude avec coche si journée confirmée à 0 cigarette.
+    - Badge numérique discret (ex. `3`, `5`) si des cigarettes sont enregistrées ce jour-là.
+    - Bordure en accent émeraude pour la date actuellement sélectionnée.
+    - Fond subtil pour « Aujourd'hui ».
+- **Section Détail du jour sélectionné (directement sous le calendrier)** :
+  - Date formatée en français (ex. « Samedi 7 novembre 2026 »).
+  - Statut de la journée (En cours, Confirmée complète, Non confirmée).
+  - Statistiques d'espacement (Min, Moy, Max) pour cette date si $\ge 2$ cigarettes.
+  - Liste détaillée des cigarettes fumées (heure, contexte, intensité, note, modification, suppression).
+  - Actions rapides pour ce jour : « Ajouter une cigarette rétroactive », « Confirmer la journée complète ».
 
 ---
 
-## 4. Technical Architecture & Data Strategy
+## 3. Décisions Produit & Rationale Technique
 
-### Architecture & Diagramme des composants
+1. **Calcul pur en mémoire basé sur le snapshot existant** :
+   - `CapZeroUiState` contient déjà la liste complète des cigarettes (`uiState.cigarettes`), les statuts journaliers (`uiState.dailyStatuses`), les plafonds planifiés et les statistiques d'intervalles calculées par jour.
+   - Le calendrier n'a besoin d'aucune requête supplémentaire en base de données : il se base sur `ymdToLocalEpochDay` et la map des jours existante pour une réactivité instantanée à 60 FPS sans latence.
+2. **Gestion du fuseau horaire de l'utilisateur** :
+   - Utilisation des utilitaires `DateAndCurrencyUtils` respectant le fuseau horaire local (`Africa/Tunis` ou heure de l'appareil) pour l'alignement exact des jours du mois et du premier jour de la semaine (lundi).
+3. **Maintien de la vue Liste** :
+   - Les utilisateurs aimant faire défiler l'historique complet sans cliquer sur chaque date conservent leur expérience habituelle grâce au commutateur `Calendrier / Liste`.
+
+---
+
+## 4. Architecture Technique & Flux de Données
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    Couche de Persistance Locale                         │
-│  ┌──────────────────────────────────┐  ┌─────────────────────────────┐  │
-│  │ DataStore (Preferences)          │  │ Room Database               │  │
-│  │ • customContexts (JSON Array)    │  │ • CigaretteLogEntity        │  │
-│  │   (défaut : PresetContexts.ALL)  │  │   (contextCategory: String) │  │
-│  └───────────────┬──────────────────┘  └──────────────┬──────────────┘  │
-└──────────────────┼────────────────────────────────────┼─────────────────┘
-                   │                                    │
-                   ▼                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       CapZeroRepository                                 │
-│  • addCustomContext(label) / updateCustomContext(old, new)              │
-│  • removeCustomContext(label) / resetCustomContextsToDefault()          │
-│  • Export / Import JSON incluant customContexts                         │
-└──────────────────────────────────┬──────────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                  CapZeroViewModel (StateFlow<CapZeroUiState>)           │
-│  • Expose uiState.preferences.customContexts                            │
-│  • Actions : addCustomContext, renameCustomContext,                     │
-│              deleteCustomContext, resetCustomContexts                   │
-└─────────────────┬────────────────────────────────────┬──────────────────┘
-                  │                                    │
-                  ▼                                    ▼
-┌────────────────────────────────────┐  ┌─────────────────────────────────┐
-│ CigaretteEntryDialog               │  │ SettingsScreen                  │
-│ (Accueil & Journal)                │  │ • Carte « Liste des contextes » │
-│ • Puces dynamiques                 │  │ • Champ d'ajout rapide          │
-│ • Puce « + Ajouter » inline        │  │ • Renommage & suppression       │
-│ • Mode « Gérer » (éditer/suppr.)   │  │ • Réinitialisation par défaut   │
-└────────────────────────────────────┘  └─────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      JournalScreen                           │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ Bannière Haut : Total Cumulé de Cigarettes Fumées     │  │
+│  └────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ Sélecteur de Mode : [ 📅 Calendrier ]  [ 📋 Liste ]    │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  SI MODE CALENDRIER :                                        │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ MonthNavigator (< Novembre 2026 > [Aujourd'hui])      │  │
+│  ├────────────────────────────────────────────────────────┤  │
+│  │ DaysOfWeekHeader (Lun Mar Mer Jeu Ven Sam Dim)         │  │
+│  ├────────────────────────────────────────────────────────┤  │
+│  │ MonthDaysGrid (Cases interactives avec pastilles)     │  │
+│  └────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ SelectedDateDetailCard (Directement sous le calendrier)│  │
+│  │ • Titre date & statut confirmation                    │  │
+│  │ • Espacement intra-journée (Min / Moy / Max)           │  │
+│  │ • Liste des cigarettes (heure, contexte, edit/delete) │  │
+│  │ • Bouton ajouter / confirmer la journée               │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  SI MODE LISTE :                                             │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ Liste chronologique des groupes par jour (existante)   │  │
+│  └────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-### Modèle de données & État
-- **`UserPreferencesState`** :
-  - Ajout de `val customContexts: List<String> = PresetContexts.ALL`.
-  - Sérialisation JSON dans DataStore via la clé `custom_contexts_json` (et sauvegarde/restauration dans l'export JSON complet).
-- **Opérations dans le Repository & DAO** :
-  - Ajout d'une requête DAO `renameContextCategory(oldCategory: String, newCategory: String)` pour maintenir la cohérence des statistiques lorsqu'un contexte est renommé.
-  - Validation des libellés (suppression des espaces superflus, prévention des doublons insensibles à la casse).
+### Plan de Déploiement :
+1. **Utilitaires calendrier dans `DateAndCurrencyUtils.kt`** :
+   - Fonctions pures pour récupérer le nombre de jours d'un mois, le décalage du 1er jour (lundi = 0), le nom du mois en français, et la navigation mois précédent / mois suivant.
+2. **Composables Calendrier dans `JournalScreen.kt`** :
+   - Carte de résumé du total de cigarettes fumées en haut du Journal.
+   - Commutateur `Calendrier` / `Liste`.
+   - Composant `JournalMonthCalendar` avec sélection réactive de la date.
+   - Composant `SelectedDayHistoryView` affichant l'historique, les intervalles et les actions pour la date choisie.
+3. **Ajout du total cumulé dans `ProgressScreen.kt`** :
+   - Carte de statistique mettant en évidence le volume global cumulé (`uiState.progressMetrics.totalCigarettesAllDays`).
+4. **Vérification & Tests** :
+   - Tests unitaires Robolectric validant le calcul mensuel, la sélection de date et le total de cigarettes.
+   - Compilation complète `compile_applet`.
